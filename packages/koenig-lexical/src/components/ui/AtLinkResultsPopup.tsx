@@ -1,13 +1,33 @@
 import React from 'react';
 import trackEvent from '../../utils/analytics';
 import {$getSelection} from 'lexical';
+import {type GroupData, KeyboardSelectionWithGroups} from './KeyboardSelectionWithGroups';
 import {InputListGroup} from './InputList';
-import {KeyboardSelectionWithGroups} from './KeyboardSelectionWithGroups';
 import {LinkInputSearchItem} from './LinkInputSearchItem';
 import {getScrollParent} from '../../utils/getScrollParent';
 import {useLexicalComposerContext} from '@lexical/react/LexicalComposerContext';
 
-export function AtLinkResultsPopup({atLinkNode, isSearching, listOptions, query, onSelect}) {
+interface AtLinkResultItem {
+    value?: string | null;
+    type?: string;
+    label: string;
+    highlight?: boolean;
+    Icon?: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+    MetaIcon?: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+    metaText?: string;
+    metaIconTitle?: string;
+    [key: string]: unknown;
+}
+
+interface AtLinkResultsPopupProps {
+    atLinkNode: {getKey: () => string};
+    isSearching?: boolean;
+    listOptions: GroupData<AtLinkResultItem>[];
+    query?: string;
+    onSelect: (item: unknown) => void;
+}
+
+export function AtLinkResultsPopup({atLinkNode, isSearching, listOptions, query, onSelect}: AtLinkResultsPopupProps) {
     const [editor] = useLexicalComposerContext();
 
     React.useEffect(() => {
@@ -21,7 +41,7 @@ export function AtLinkResultsPopup({atLinkNode, isSearching, listOptions, query,
         return getScrollParent(editor.getRootElement());
     }, [editor]);
 
-    const popupRef = React.useRef(null);
+    const popupRef = React.useRef<HTMLDivElement>(null);
 
     const testId = 'at-link-results';
 
@@ -40,7 +60,7 @@ export function AtLinkResultsPopup({atLinkNode, isSearching, listOptions, query,
             }
 
             const atLinkElement = editor.getElementByKey(atLinkNode.getKey());
-            const atLinkRect = atLinkElement.getBoundingClientRect();
+            const atLinkRect = atLinkElement?.getBoundingClientRect();
 
             const editorElem = editor.getRootElement();
 
@@ -64,7 +84,7 @@ export function AtLinkResultsPopup({atLinkNode, isSearching, listOptions, query,
             const popupMaxHeight = (window.innerHeight / 100 * 30) + 54;
             const popupRect = popupElement.getBoundingClientRect();
 
-            if (scrollContainer.scrollTop + popupRect.top + popupMaxHeight > scrollContainer.scrollHeight) {
+            if ((scrollContainer as HTMLElement).scrollTop + popupRect.top + popupMaxHeight > (scrollContainer as HTMLElement).scrollHeight) {
                 popupElement.style.top = `${atLinkRect.top - popupRect.height - 10}px`;
             }
         });
@@ -79,17 +99,19 @@ export function AtLinkResultsPopup({atLinkNode, isSearching, listOptions, query,
     React.useEffect(() => {
         window.addEventListener('resize', updatePopupPosition);
         if (scrollContainer) {
-            scrollContainer.addEventListener('scroll', updatePopupPosition);
+            (scrollContainer as HTMLElement).addEventListener('scroll', updatePopupPosition);
         }
 
         const popupElement = popupRef.current;
         const popupMutationObserver = new MutationObserver(updatePopupPosition);
-        popupMutationObserver.observe(popupElement, {childList: true, subtree: true});
+        if (popupElement) {
+            popupMutationObserver.observe(popupElement, {childList: true, subtree: true});
+        }
 
         return () => {
             window.removeEventListener('resize', updatePopupPosition);
             if (scrollContainer) {
-                scrollContainer.removeEventListener('scroll', updatePopupPosition);
+                (scrollContainer as HTMLElement).removeEventListener('scroll', updatePopupPosition);
             }
             if (popupElement) {
                 popupMutationObserver.disconnect();
@@ -97,7 +119,7 @@ export function AtLinkResultsPopup({atLinkNode, isSearching, listOptions, query,
         };
     }, [editor, scrollContainer, updatePopupPosition]);
 
-    const getItem = (item, selected, onMouseOver, scrollIntoView) => {
+    const getItem = (item: AtLinkResultItem, selected: boolean, onMouseOver: () => void, scrollIntoView: boolean) => {
         return (
             <LinkInputSearchItem
                 key={item.value}
@@ -112,7 +134,7 @@ export function AtLinkResultsPopup({atLinkNode, isSearching, listOptions, query,
         );
     };
 
-    const getGroup = (group, {showSpinner} = {}) => {
+    const getGroup = (group: GroupData, {showSpinner}: {showSpinner?: boolean} = {}) => {
         return (
             <InputListGroup dataTestId={testId} group={group} showSpinner={showSpinner} />
         );
