@@ -6,6 +6,7 @@ import {CardCaptionEditor} from '../CardCaptionEditor';
 import {CardText, MediaPlaceholder} from '../MediaPlaceholder';
 import {IconButton} from '../IconButton';
 import {ProgressBar} from '../ProgressBar';
+import {getImageResizeBounds, getImageResizeLayoutWidth} from '../../../utils/image-resize-bounds';
 import {isGif} from '../../../utils/isGif';
 import {openFileSelection} from '../../../utils/openFileSelection';
 
@@ -33,6 +34,8 @@ function PopulatedImageCard({
     imageWidth,
     imageHeight,
     displayWidth,
+    liveDisplayWidth,
+    setLiveDisplayWidth,
     isSelected,
     isResizeEnabled,
     resizeConfig,
@@ -41,12 +44,7 @@ function PopulatedImageCard({
 }) {
     const imageRef = React.useRef(null);
     const resizeStateRef = React.useRef(null);
-    const [liveDisplayWidth, setLiveDisplayWidth] = React.useState(displayWidth || null);
     const [isResizing, setIsResizing] = React.useState(false);
-
-    React.useEffect(() => {
-        setLiveDisplayWidth(displayWidth || null);
-    }, [displayWidth]);
 
     const progressStyle = {
         width: `${imageUploader.progress?.toFixed(0)}%`
@@ -69,15 +67,11 @@ function PopulatedImageCard({
     }
 
     const getResizeBounds = React.useCallback(() => {
-        const minWidth = resizeConfig?.minWidth || 100;
-        const configuredMaxWidth = resizeConfig?.maxWidth;
-        const measuredMaxWidth = imageRef.current?.parentElement?.clientWidth;
-        const maxWidth = configuredMaxWidth || measuredMaxWidth || imageWidth || 2400;
-
-        return {
-            minWidth,
-            maxWidth: Math.max(minWidth, maxWidth)
-        };
+        return getImageResizeBounds({
+            imageWidth: imageWidth || imageRef.current?.naturalWidth,
+            layoutWidth: getImageResizeLayoutWidth(imageRef.current),
+            resizeConfig
+        });
     }, [imageWidth, resizeConfig]);
 
     const handleResizeMove = React.useCallback((event) => {
@@ -90,7 +84,7 @@ function PopulatedImageCard({
         const nextWidth = clamp(state.startWidth + delta, state.minWidth, state.maxWidth);
         state.latestWidth = nextWidth;
         setLiveDisplayWidth(nextWidth);
-    }, []);
+    }, [setLiveDisplayWidth]);
 
     const stopResize = React.useCallback(() => {
         const state = resizeStateRef.current;
@@ -243,6 +237,8 @@ const ImageHolder = ({
     imageWidth,
     imageHeight,
     displayWidth,
+    liveDisplayWidth,
+    setLiveDisplayWidth,
     isSelected,
     isResizeEnabled,
     resizeConfig,
@@ -262,9 +258,11 @@ const ImageHolder = ({
                 isPinturaEnabled={isPinturaEnabled}
                 isResizeEnabled={isResizeEnabled}
                 isSelected={isSelected}
+                liveDisplayWidth={liveDisplayWidth}
                 openImageEditor={openImageEditor}
                 previewSrc={previewSrc}
                 resizeConfig={resizeConfig}
+                setLiveDisplayWidth={setLiveDisplayWidth}
                 src={src}
                 onDisplayWidthChange={onDisplayWidthChange}
                 onFileChange={onFileChange}
@@ -309,8 +307,15 @@ export function ImageCard({
     onResetDisplayWidth
 }) {
     const figureRef = React.useRef(null);
-    const figureStyle = displayWidth ? {
-        maxWidth: `${Math.round(displayWidth)}px`,
+    const [liveDisplayWidth, setLiveDisplayWidth] = React.useState(displayWidth || null);
+
+    React.useEffect(() => {
+        setLiveDisplayWidth(displayWidth || null);
+    }, [displayWidth]);
+
+    const effectiveFigureWidth = liveDisplayWidth || displayWidth;
+    const figureStyle = effectiveFigureWidth ? {
+        maxWidth: `${Math.round(effectiveFigureWidth)}px`,
         width: '100%',
         marginLeft: 'auto',
         marginRight: 'auto'
@@ -341,10 +346,12 @@ export function ImageCard({
                     isPinturaEnabled={isPinturaEnabled}
                     isResizeEnabled={isResizeEnabled}
                     isSelected={isSelected}
+                    liveDisplayWidth={liveDisplayWidth}
                     openImageEditor={openImageEditor}
                     previewSrc={previewSrc}
                     resizeConfig={resizeConfig}
                     setFileInputRef={setFileInputRef}
+                    setLiveDisplayWidth={setLiveDisplayWidth}
                     src={src}
                     onDisplayWidthChange={onDisplayWidthChange}
                     onFileChange={onFileChange}
@@ -380,6 +387,8 @@ ImageHolder.propTypes = {
     imageWidth: PropTypes.number,
     imageHeight: PropTypes.number,
     displayWidth: PropTypes.number,
+    liveDisplayWidth: PropTypes.number,
+    setLiveDisplayWidth: PropTypes.func,
     isSelected: PropTypes.bool,
     isResizeEnabled: PropTypes.bool,
     resizeConfig: PropTypes.object,
@@ -400,6 +409,8 @@ PopulatedImageCard.propTypes = {
     imageWidth: PropTypes.number,
     imageHeight: PropTypes.number,
     displayWidth: PropTypes.number,
+    liveDisplayWidth: PropTypes.number,
+    setLiveDisplayWidth: PropTypes.func,
     isSelected: PropTypes.bool,
     isResizeEnabled: PropTypes.bool,
     resizeConfig: PropTypes.object,
