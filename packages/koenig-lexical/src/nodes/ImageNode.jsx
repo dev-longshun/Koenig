@@ -67,9 +67,10 @@ export class ImageNode extends BaseImageNode {
     constructor(dataset = {}, key) {
         super(dataset, key);
 
-        const {previewSrc, triggerFileDialog, initialFile, selector, isImageHidden} = dataset;
+        const {previewSrc, triggerFileDialog, initialFile, selector, isImageHidden, displayWidth} = dataset;
 
         this.__previewSrc = previewSrc || '';
+        this.__displayWidth = Number.isFinite(displayWidth) ? displayWidth : null;
         // don't trigger the file dialog when rendering if we've already been given a url
         this.__triggerFileDialog = (!dataset.src && triggerFileDialog) || false;
 
@@ -96,6 +97,7 @@ export class ImageNode extends BaseImageNode {
 
         dataset.__previewSrc = this.__previewSrc;
         dataset.__triggerFileDialog = this.__triggerFileDialog;
+        dataset.displayWidth = this.displayWidth;
 
         // client-side only data properties such as nested editors
         const self = this.getLatest();
@@ -115,9 +117,25 @@ export class ImageNode extends BaseImageNode {
         writable.__previewSrc = previewSrc;
     }
 
+    get displayWidth() {
+        const self = this.getLatest();
+        return self.__displayWidth;
+    }
+
+    set displayWidth(displayWidth) {
+        const writable = this.getWritable();
+        writable.__displayWidth = Number.isFinite(displayWidth) ? displayWidth : null;
+    }
+
     set triggerFileDialog(shouldTrigger) {
         const writable = this.getWritable();
         writable.__triggerFileDialog = shouldTrigger;
+    }
+
+    static importJSON(serializedNode) {
+        const node = super.importJSON(serializedNode);
+        node.__displayWidth = Number.isFinite(serializedNode.displayWidth) ? serializedNode.displayWidth : null;
+        return node;
     }
 
     createDOM() {
@@ -137,6 +155,10 @@ export class ImageNode extends BaseImageNode {
             });
         }
 
+        if (this.displayWidth) {
+            json.displayWidth = this.displayWidth;
+        }
+
         return json;
     }
 
@@ -153,12 +175,15 @@ export class ImageNode extends BaseImageNode {
                             altText={this.__alt}
                             captionEditor={this.__captionEditor}
                             captionEditorInitialState={this.__captionEditorInitialState}
+                            displayWidth={this.displayWidth}
+                            height={this.height}
                             href={this.href}
                             initialFile={this.__initialFile}
                             nodeKey={this.getKey()}
                             previewSrc={this.previewSrc}
                             src={this.src}
                             triggerFileDialog={this.__triggerFileDialog}
+                            width={this.width}
                         />
                     )
                 }

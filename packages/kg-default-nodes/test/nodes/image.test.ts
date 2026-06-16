@@ -85,6 +85,7 @@ describe('ImageNode', function () {
                 cardWidth: 'regular',
                 width: null,
                 height: null,
+                displayWidth: null,
                 href: ''
             });
         }));
@@ -103,6 +104,10 @@ describe('ImageNode', function () {
             (should as unknown as (obj: unknown) => should.Assertion)(imageNode.height).equal(null);
             imageNode.height = 2160;
             imageNode.height.should.equal(2160);
+
+            (should as unknown as (obj: unknown) => should.Assertion)(imageNode.displayWidth).equal(null);
+            imageNode.displayWidth = 720;
+            imageNode.displayWidth!.should.equal(720);
 
             imageNode.title.should.equal('');
             imageNode.title = 'I am a title';
@@ -131,7 +136,8 @@ describe('ImageNode', function () {
 
             imageNodeDataset.should.deepEqual({
                 ...dataset,
-                cardWidth: 'regular'
+                cardWidth: 'regular',
+                displayWidth: null
             });
         }));
     });
@@ -213,6 +219,18 @@ describe('ImageNode', function () {
             const {element} = imageNode.exportDOM(editor, exportOptions);
 
             (element as HTMLElement).classList.contains('kg-width-wide').should.be.true();
+        }));
+
+        it('renders a regular image with a custom display width', editorTest(function () {
+            dataset.displayWidth = 480;
+            const imageNode = $createImageNode(dataset);
+            const {element} = imageNode.exportDOM(editor, exportOptions);
+            const output = (element as HTMLElement).outerHTML;
+
+            output.should.containEql('width="480"');
+            output.should.containEql('height="270"');
+            output.should.containEql('style="width: 480px; max-width: 100%; height: auto;"');
+            output.should.containEql('sizes="(min-width: 480px) 480px, 100vw"');
         }));
 
         it('uses resized width and height when there\'s a max width', editorTest(function () {
@@ -482,6 +500,7 @@ describe('ImageNode', function () {
                 alt: 'This is some alt text',
                 caption: 'This is a <b>caption</b>',
                 cardWidth: 'wide',
+                displayWidth: null,
                 href: ''
             });
         }));
@@ -494,7 +513,8 @@ describe('ImageNode', function () {
                     children: [{
                         type: 'image',
                         ...dataset,
-                        cardWidth: 'wide'
+                        cardWidth: 'wide',
+                        displayWidth: 720
                     }],
                     direction: null,
                     format: '',
@@ -518,6 +538,7 @@ describe('ImageNode', function () {
                     imageNode.alt.should.equal('This is some alt text');
                     imageNode.caption.should.equal('This is a <b>caption</b>');
                     imageNode.cardWidth.should.equal('wide');
+                    imageNode.displayWidth!.should.equal(720);
 
                     done();
                 } catch (e) {

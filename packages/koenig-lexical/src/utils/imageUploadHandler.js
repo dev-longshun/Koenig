@@ -28,6 +28,7 @@ export const imageUploadHandler = async (files, nodeKey, editor, upload) => {
         node.width = width;
         node.height = height;
         node.src = imageSrc;
+        node.displayWidth = null;
         node.previewSrc = null;
     });
 

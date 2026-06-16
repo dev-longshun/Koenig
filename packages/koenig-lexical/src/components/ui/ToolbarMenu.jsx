@@ -1,5 +1,6 @@
 import AddIcon from '../../assets/icons/kg-add.svg?react';
 import BoldIcon from '../../assets/icons/kg-bold.svg?react';
+import CropIcon from '../../assets/icons/kg-crop.svg?react';
 import EditIcon from '../../assets/icons/kg-edit.svg?react';
 import EyeIcon from '../../assets/icons/kg-eye.svg?react';
 import HeadingThreeIcon from '../../assets/icons/kg-heading-3.svg?react';
@@ -13,6 +14,8 @@ import LinkIcon from '../../assets/icons/kg-link.svg?react';
 import QuoteIcon from '../../assets/icons/kg-quote.svg?react';
 import QuoteOneIcon from '../../assets/icons/kg-quote-1.svg?react';
 import QuoteTwoIcon from '../../assets/icons/kg-quote-2.svg?react';
+import ResizeIcon from '../../assets/icons/kg-resize.svg?react';
+import RestoreIcon from '../../assets/icons/kg-restore.svg?react';
 import SnippetIcon from '../../assets/icons/kg-snippet.svg?react';
 import TrashIcon from '../../assets/icons/kg-trash.svg?react';
 import WandIcon from '../../assets/icons/kg-wand.svg?react';
@@ -31,6 +34,9 @@ export const TOOLBAR_ICONS = {
     imgWide: ImgWideIcon,
     imgFull: ImgFullIcon,
     imgReplace: ImgReplaceIcon,
+    crop: CropIcon,
+    resize: ResizeIcon,
+    restore: RestoreIcon,
     add: AddIcon,
     edit: EditIcon,
     wand: WandIcon,

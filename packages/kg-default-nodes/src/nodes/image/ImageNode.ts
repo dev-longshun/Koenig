@@ -10,6 +10,7 @@ const imageProperties = [
     {name: 'cardWidth', default: 'regular'},
     {name: 'width', default: null as number | null},
     {name: 'height', default: null as number | null},
+    {name: 'displayWidth', default: null as number | null},
     {name: 'href', default: '', urlType: 'url'}
 ] as const satisfies readonly DecoratorNodeProperty[];
 
@@ -25,7 +26,7 @@ export class ImageNode extends generateDecoratorNode({
     /* @override */
     exportJSON() {
         // checks if src is a data string
-        const {src, width, height, title, alt, caption, cardWidth, href} = this;
+        const {src, width, height, title, alt, caption, cardWidth, displayWidth, href} = this;
         const isBlob = src && src.startsWith('data:');
 
         const dataset = {
@@ -38,6 +39,7 @@ export class ImageNode extends generateDecoratorNode({
             alt,
             caption,
             cardWidth,
+            displayWidth,
             href
         };
         return dataset;

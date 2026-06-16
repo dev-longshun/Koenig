@@ -14,6 +14,7 @@ interface ImageNodeData {
     title: string;
     caption: string;
     cardWidth: string;
+    displayWidth: number | null;
     href: string;
 }
 
@@ -56,7 +57,22 @@ export function renderImageNode(node: ImageNodeData, options: ImageRenderOptions
         img.setAttribute('title', node.title);
     }
 
-    if (node.width && node.height) {
+    const hasDisplayWidth = Boolean(node.displayWidth && node.cardWidth === 'regular');
+    const imageDimensions = {
+        width: node.width,
+        height: node.height
+    };
+    const displayedDimensions = hasDisplayWidth && node.width && node.height
+        ? getResizedImageDimensions(imageDimensions, {width: node.displayWidth!})
+        : null;
+
+    if (displayedDimensions) {
+        img.setAttribute('width', String(displayedDimensions.width));
+        img.setAttribute('height', String(displayedDimensions.height));
+        if (options.target !== 'email') {
+            img.setAttribute('style', `width: ${displayedDimensions.width}px; max-width: 100%; height: auto;`);
+        }
+    } else if (node.width && node.height) {
         img.setAttribute('width', String(node.width));
         img.setAttribute('height', String(node.height));
     }
@@ -67,16 +83,13 @@ export function renderImageNode(node: ImageNodeData, options: ImageRenderOptions
     const {canTransformImage} = options;
     const {defaultMaxWidth} = options.imageOptimization || {};
     if (
+        !displayedDimensions &&
         defaultMaxWidth &&
             node.width > defaultMaxWidth &&
             isLocalContentImage(node.src, options.siteUrl) &&
             canTransformImage &&
             canTransformImage(node.src)
     ) {
-        const imageDimensions = {
-            width: node.width,
-            height: node.height
-        };
         const {width, height} = getResizedImageDimensions(imageDimensions, {width: defaultMaxWidth});
         img.setAttribute('width', String(width));
         img.setAttribute('height', String(height));
@@ -92,7 +105,9 @@ export function renderImageNode(node: ImageNodeData, options: ImageRenderOptions
 
         if (img.getAttribute('srcset') && node.width && node.width >= 720) {
             // standard size
-            if (!node.cardWidth || node.cardWidth === 'regular') {
+            if (hasDisplayWidth) {
+                img.setAttribute('sizes', `(min-width: ${node.displayWidth}px) ${node.displayWidth}px, 100vw`);
+            } else if (!node.cardWidth || node.cardWidth === 'regular') {
                 img.setAttribute('sizes', '(min-width: 720px) 720px');
             }
 
@@ -106,21 +121,22 @@ export function renderImageNode(node: ImageNodeData, options: ImageRenderOptions
     // so we add that at the expected size in emails (600px) and use a higher
     // resolution image to keep images looking good on retina screens
     if (options.target === 'email' && node.width && node.height) {
-        let imageDimensions = {
+        let emailDimensions = {
             width: node.width,
             height: node.height
         };
-        if (node.width >= 600) {
-            imageDimensions = getResizedImageDimensions(imageDimensions, {width: 600});
+        const targetEmailWidth = node.displayWidth && node.cardWidth === 'regular' ? Math.min(node.displayWidth, 600) : 600;
+        if (node.width >= targetEmailWidth) {
+            emailDimensions = getResizedImageDimensions(emailDimensions, {width: targetEmailWidth});
         }
-        img.setAttribute('width', String(imageDimensions.width));
-        img.setAttribute('height', String(imageDimensions.height));
+        img.setAttribute('width', String(emailDimensions.width));
+        img.setAttribute('height', String(emailDimensions.height));
 
         const contentImageSizes = options.imageOptimization?.contentImageSizes;
         if (contentImageSizes && isLocalContentImage(node.src, options.siteUrl) && options.canTransformImage?.(node.src)) {
             // find available image size next up from 2x600 so we can use it for the "retina" src
             const availableImageWidths = getAvailableImageWidths(node, contentImageSizes);
-            const srcWidth = availableImageWidths.find(width => width >= 1200);
+            const srcWidth = availableImageWidths.find(width => width >= emailDimensions.width * 2);
 
             if (!srcWidth || srcWidth === node.width) {
                 // do nothing, width is smaller than retina or matches the original node src

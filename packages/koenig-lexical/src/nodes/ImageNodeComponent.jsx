@@ -7,6 +7,7 @@ import usePinturaEditor from '../hooks/usePinturaEditor';
 import {$createGalleryNode} from './GalleryNode';
 import {$createNodeSelection, $getNodeByKey, $setSelection} from 'lexical';
 import {ActionToolbar} from '../components/ui/ActionToolbar';
+import {CropModal} from '../components/ui/cards/CropModal';
 import {ImageCard} from '../components/ui/cards/ImageCard';
 import {ImageUploadForm} from '../components/ui/ImageUploadForm';
 import {LinkInput} from '../components/ui/LinkInput';
@@ -21,7 +22,24 @@ import {isGif} from '../utils/isGif';
 import {openFileSelection} from '../utils/openFileSelection';
 import {useLexicalComposerContext} from '@lexical/react/LexicalComposerContext';
 
-export function ImageNodeComponent({nodeKey, initialFile, src, altText, captionEditor, captionEditorInitialState, triggerFileDialog, previewSrc, href}) {
+const DEFAULT_IMAGE_CROP_CONFIG = {
+    enabled: false,
+    aspectRatios: [
+        {label: 'Free', value: undefined},
+        {label: '1:1', value: 1},
+        {label: '4:3', value: 4 / 3},
+        {label: '16:9', value: 16 / 9}
+    ],
+    maxWidth: 2400
+};
+
+const DEFAULT_IMAGE_RESIZE_CONFIG = {
+    enabled: false,
+    minWidth: 100,
+    lockAspectRatio: true
+};
+
+export function ImageNodeComponent({nodeKey, initialFile, src, altText, captionEditor, captionEditorInitialState, triggerFileDialog, previewSrc, href, width, height, displayWidth}) {
     const [editor] = useLexicalComposerContext();
     const [showLink, setShowLink] = React.useState(false);
     const {fileUploader, cardConfig} = React.useContext(KoenigComposerContext);
@@ -29,9 +47,20 @@ export function ImageNodeComponent({nodeKey, initialFile, src, altText, captionE
     const fileInputRef = React.useRef();
     const toolbarFileInputRef = React.useRef();
     const [showSnippetToolbar, setShowSnippetToolbar] = React.useState(false);
+    const [showCropModal, setShowCropModal] = React.useState(false);
 
     const imageUploader = fileUploader.useFileUpload('image');
     const imageFileDragHandler = useFileDragAndDrop({handleDrop: handleImageDrop});
+    const imageCropConfig = React.useMemo(() => ({
+        ...DEFAULT_IMAGE_CROP_CONFIG,
+        ...cardConfig?.imageCrop
+    }), [cardConfig?.imageCrop]);
+    const imageResizeConfig = React.useMemo(() => ({
+        ...DEFAULT_IMAGE_RESIZE_CONFIG,
+        ...cardConfig?.imageResize
+    }), [cardConfig?.imageResize]);
+    const isImageCropEnabled = Boolean(imageCropConfig.enabled);
+    const isImageResizeEnabled = Boolean(imageResizeConfig.enabled);
 
     // stable fn refs to avoid excessive re-inits of the drag/drop handler effects
     // which can cause unexpected side-effects with event handling
@@ -67,7 +96,7 @@ export function ImageNodeComponent({nodeKey, initialFile, src, altText, captionE
     });
 
     const {isEnabled: isPinturaEnabled, openEditor: openImageEditor}
-        = usePinturaEditor({config: cardConfig.pinturaConfig});
+        = usePinturaEditor({config: cardConfig?.pinturaConfig});
         
     const allowedImageCardWidths = React.useMemo(() => {
         return getAllowedImageCardWidths(cardConfig?.image?.allowedWidths);
@@ -195,9 +224,45 @@ export function ImageNodeComponent({nodeKey, initialFile, src, altText, captionE
         editor.update(() => {
             const node = $getNodeByKey(nodeKey);
             node.cardWidth = newWidth; // this is a property on the node, not the card
+            if (newWidth !== 'regular') {
+                node.displayWidth = null;
+            }
             setCardWidth(newWidth); // sets the state of the toolbar component
         });
     }, [allowedImageCardWidths, editor, nodeKey, setCardWidth]);
+
+    const handleDisplayWidthChange = React.useCallback((newDisplayWidth) => {
+        if (!Number.isFinite(newDisplayWidth)) {
+            return;
+        }
+
+        editor.update(() => {
+            const node = $getNodeByKey(nodeKey);
+            node.cardWidth = 'regular';
+            node.displayWidth = newDisplayWidth;
+            setCardWidth('regular');
+        });
+    }, [editor, nodeKey, setCardWidth]);
+
+    const handleResetDisplayWidth = React.useCallback(() => {
+        editor.update(() => {
+            const node = $getNodeByKey(nodeKey);
+            node.displayWidth = null;
+        });
+    }, [editor, nodeKey]);
+
+    const handleStartResize = React.useCallback(() => {
+        editor.update(() => {
+            const node = $getNodeByKey(nodeKey);
+            node.cardWidth = 'regular';
+            setCardWidth('regular');
+        });
+    }, [editor, nodeKey, setCardWidth]);
+
+    const handleCropImage = React.useCallback(async (file) => {
+        await imageUploadHandler([file], nodeKey, editor, imageUploader.upload);
+        handleResetDisplayWidth();
+    }, [editor, handleResetDisplayWidth, imageUploader.upload, nodeKey]);
 
     React.useEffect(() => {
         if (!allowedImageCardWidths.includes(cardWidth)) {
@@ -229,17 +294,37 @@ export function ImageNodeComponent({nodeKey, initialFile, src, altText, captionE
                 captionEditor={captionEditor}
                 captionEditorInitialState={captionEditorInitialState}
                 cardWidth={cardWidth}
+                displayWidth={displayWidth}
                 fileInputRef={fileInputRef}
                 imageCardDragHandler={imageCardDragHandler}
                 imageFileDragHandler={imageFileDragHandler}
+                imageHeight={height}
                 imageUploader={imageUploader}
+                imageWidth={width}
                 isPinturaEnabled={isPinturaEnabled}
+                isResizeEnabled={isImageResizeEnabled}
                 isSelected={isSelected}
                 openImageEditor={openImageEditor}
                 previewSrc={previewSrc}
+                resizeConfig={imageResizeConfig}
                 setAltText={setAltText}
                 src={src}
+                onDisplayWidthChange={handleDisplayWidthChange}
                 onFileChange={onFileChange}
+                onResetDisplayWidth={handleResetDisplayWidth}
+            />
+
+            <CropModal
+                altText={altText}
+                aspectRatios={imageCropConfig.aspectRatios}
+                isOpen={showCropModal && isImageCropEnabled}
+                maxWidth={imageCropConfig.maxWidth}
+                src={src}
+                onClose={() => {
+                    setShowCropModal(false);
+                    reselectImageCard();
+                }}
+                onSave={handleCropImage}
             />
 
             <ActionToolbar
@@ -295,13 +380,38 @@ export function ImageNodeComponent({nodeKey, initialFile, src, altText, captionE
                         onClick={() => handleImageCardResize('full')}
                     />
                     <ToolbarMenuSeparator hide={isGif(src) || !hasMultipleImageCardWidths} />
+                    <ToolbarMenuItem
+                        dataTestId="crop-image"
+                        hide={!isImageCropEnabled || isGif(src)}
+                        icon="crop"
+                        isActive={showCropModal}
+                        label="Crop"
+                        onClick={() => setShowCropModal(true)}
+                    />
+                    <ToolbarMenuItem
+                        dataTestId="resize-image"
+                        hide={!isImageResizeEnabled || isGif(src)}
+                        icon="resize"
+                        isActive={Boolean(displayWidth)}
+                        label="Resize"
+                        onClick={handleStartResize}
+                    />
+                    <ToolbarMenuItem
+                        dataTestId="restore-image-size"
+                        hide={!isImageResizeEnabled || !displayWidth || isGif(src)}
+                        icon="restore"
+                        isActive={false}
+                        label="Restore size"
+                        onClick={handleResetDisplayWidth}
+                    />
+                    <ToolbarMenuSeparator hide={(!isImageCropEnabled && !isImageResizeEnabled) || isGif(src)} />
                     <ToolbarMenuItem icon="link" isActive={href || false} label="Link" onClick = {() => {
                         setShowLink(true);
                     }} />
-                    <ToolbarMenuSeparator hide={!cardConfig.createSnippet} />
+                    <ToolbarMenuSeparator hide={!cardConfig?.createSnippet} />
                     <ToolbarMenuItem
                         dataTestId="create-snippet"
-                        hide={!cardConfig.createSnippet}
+                        hide={!cardConfig?.createSnippet}
                         icon="snippet"
                         isActive={false}
                         label="Save as snippet"
